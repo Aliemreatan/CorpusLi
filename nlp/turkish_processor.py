@@ -319,7 +319,7 @@ class TurkishNLPProcessor:
             return [sent.text.strip() for sent in doc.sentences if sent.text.strip()]
         else:
             # Enhanced sentence splitting for Turkish
-            # Handles ellipsis (...), !, ?, . followed by whitespace or end of string
+            # Handles ellipsis (...), !, ?, . followed by whitespace or end of string OR newlines
             # Also avoids splitting on common abbreviations like Dr., Prof., vb. (basic check)
             
             # Protect common abbreviations temporarily
@@ -330,10 +330,8 @@ class TurkishNLPProcessor:
             for abbr, ph in zip(abbreviations, placeholders):
                 protected_text = protected_text.replace(abbr, ph)
             
-            # Split by punctuation followed by whitespace or EOS
-            # (?<=[.!?]) lookbehind for punctuation
-            # (?:\s+|$) match whitespace or end of string
-            sentences = re.split(r'(?<=[.!?])(?:\s+|$)', protected_text)
+            # Split by punctuation followed by whitespace or EOS, or by newlines
+            sentences = re.split(r'(?<=[.!?])(?:\s+|$)|(?:\n)', protected_text)
             
             # Restore abbreviations
             restored_sentences = []
@@ -345,7 +343,7 @@ class TurkishNLPProcessor:
                 for abbr, ph in zip(abbreviations, placeholders):
                     restored = restored.replace(ph, abbr)
                 restored_sentences.append(restored.strip())
-                
+            
             return restored_sentences
     
     def get_processing_info(self) -> Dict[str, Any]:
