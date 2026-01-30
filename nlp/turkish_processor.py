@@ -232,6 +232,47 @@ class TurkishNLPProcessor:
             logger.error(f"Custom BERT processing error: {e}")
             return self._process_simple(text)
 
+    def _map_pos_to_turkish(self, pos: str) -> str:
+        """Map Universal POS tags to Turkish equivalents"""
+        mapping = {
+            'NOUN': 'İsim',
+            'VERB': 'Fiil',
+            'ADJ': 'Sıfat',
+            'ADV': 'Zarf',
+            'PRON': 'Zamir',
+            'DET': 'Belirteç',
+            'ADP': 'İlgeç',
+            'CCONJ': 'Bağlaç',
+            'SCONJ': 'Bağlaç',
+            'AUX': 'Yardımcı Fiil',
+            'PROPN': 'Özel İsim',
+            'NUM': 'Sayı',
+            'PART': 'Edat',
+            'INTJ': 'Ünlem',
+            'PUNCT': 'Noktalama',
+            'SYM': 'Sembol',
+            'X': 'Bilinmeyen'
+        }
+        return mapping.get(pos, pos)
+
+    def _normalize_turkish_text(self, text: str) -> str:
+        """
+        Normalize Turkish text by handling special characters and lowercasing properly
+        """
+        # Dictionary for Turkish specific lowercase conversion
+        lower_map = {
+            ord('I'): 'ı',
+            ord('İ'): 'i',
+            ord('Ğ'): 'ğ',
+            ord('Ü'): 'ü',
+            ord('Ö'): 'ö',
+            ord('Ş'): 'ş',
+            ord('Ç'): 'ç'
+        }
+        
+        # Translate and return
+        return text.translate(lower_map)
+
     def _process_simple(self, text: str) -> List[Dict[str, Any]]:
         """Process text using simple tokenization with basic heuristic POS tagging"""
         # Simple Turkish text normalization

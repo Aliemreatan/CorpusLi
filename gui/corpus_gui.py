@@ -120,6 +120,7 @@ class CorpusGUI:
         self.setup_realtime_analysis_tab()
         self.setup_visualization_tab()
         self.setup_tools_tab()
+        self.setup_lemma_tab() # Yeni sekme
         self.setup_results_tab()
 
         # Status bar at bottom
@@ -127,10 +128,97 @@ class CorpusGUI:
         status_frame = ttk.Frame(main_frame)
         status_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
         status_frame.columnconfigure(0, weight=1)
-
+        
         self.status_bar = ttk.Label(status_frame, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.grid(row=0, column=0, sticky=(tk.W, tk.E))
         
+        # Progress bar
+        self.progress = ttk.Progressbar(status_frame, orient="horizontal", length=100, mode="determinate")
+        self.progress.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=10)
+        
+    def setup_database_tab(self):
+        """Setup database configuration tab"""
+        db_frame = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(db_frame, text="Veritabanı")
+
+        self.setup_database_section(db_frame)
+
+    def setup_lemma_tab(self):
+        """Setup the Lemma Operations tab"""
+        lemma_frame = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(lemma_frame, text="Lemma İşlemleri")
+
+        # Configure grid
+        lemma_frame.columnconfigure(0, weight=1)
+        
+        # Stanza Lemma Updater Tool
+        stanza_frame = ttk.LabelFrame(lemma_frame, text="Stanza ile Lemma Güncelleme", padding="10")
+        stanza_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
+        
+        ttk.Label(stanza_frame, text="Bu araç, veritabanındaki tüm metinleri Stanza NLP kütüphanesini kullanarak yeniden işler ve 'lemma' (kelime kökü/gövdesi) bilgilerini günceller.", 
+                 wraplength=800).pack(anchor=tk.W, pady=(0, 10))
+        
+        ttk.Label(stanza_frame, text="Uyarı: Bu işlem, veritabanının büyüklüğüne bağlı olarak çok uzun sürebilir ve mevcut lemma verilerinin üzerine yazar!", 
+                 foreground="red").pack(anchor=tk.W, pady=(10, 5))
+        
+        ttk.Button(stanza_frame, text="Lemma Bilgilerini Stanza ile Güncelle", 
+                  command=self.run_stanza_lemma_update).pack(pady=10)
+
+    def run_stanza_lemma_update(self):
+        """Run Stanza lemma update in a background thread."""
+        if not self.db_path.get():
+            messagebox.showwarning("Uyarı", "Lütfen önce veritabanı dosyasını seçin!")
+            return
+            
+        result = messagebox.askyesno("Onay", 
+                                   "Bu işlem veritabanındaki tüm 'lemma' bilgilerini Stanza ile güncelleyecektir.\n"
+                                   "İşlem uzun sürebilir ve geri alınamaz. Devam etmek istiyor musunuz?")
+        
+        if not result:
+            return
+            
+        # Start in background thread
+        thread = threading.Thread(target=self._stanza_lemma_thread)
+        thread.daemon = True
+        thread.start()
+
+    def _stanza_lemma_thread(self):
+        """Background thread for Stanza lemma updating."""
+        try:
+            from nlp.lemma_updater import StanzaLemmaUpdater
+            
+            self.status_var.set("Stanza başlatılıyor... (Bu işlem biraz zaman alabilir)")
+            self.progress['value'] = 0
+            self.root.update_idletasks()
+            
+            # Create updater with a progress callback
+            updater = StanzaLemmaUpdater(self.db_path.get(), progress_callback=self.update_progress)
+            updater.update_all_lemmas()
+            
+            # Signal completion
+            self.root.after(0, self._stanza_lemma_complete)
+            
+        except Exception as e:
+            self.root.after(0, self._stanza_lemma_error, str(e))
+
+    def update_progress(self, value, text):
+        """Callback to update the progress bar and status from a thread."""
+        self.progress['value'] = value
+        self.status_var.set(text)
+        self.root.update_idletasks()
+
+    def _stanza_lemma_complete(self):
+        """Handle successful lemma update."""
+        self.status_var.set("Lemma güncelleme işlemi tamamlandı.")
+        self.progress['value'] = 100
+        messagebox.showinfo("Başarılı", "Veritabanındaki tüm lemma bilgileri Stanza ile başarıyla güncellendi!")
+        self.progress['value'] = 0 # Reset progress bar
+
+    def _stanza_lemma_error(self, error_msg):
+        """Handle lemma update error."""
+        self.status_var.set("Hata: Lemma güncelleme başarısız.")
+        self.progress['value'] = 0
+        messagebox.showerror("Hata", f"Lemma güncelleme sırasında bir hata oluştu:\n{error_msg}")
     def setup_database_tab(self):
         """Setup database configuration tab"""
         db_frame = ttk.Frame(self.notebook, padding="10")
@@ -183,7 +271,7 @@ class CorpusGUI:
     def setup_results_tab(self):
         """Setup results tab"""
         results_frame = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(results_frame, text="Sonuçlar")
+        self.notebook.add(results_frame, text="Rapor Hazırlama")
 
         self.setup_results_section(results_frame)
 
@@ -649,7 +737,9 @@ class CorpusGUI:
         
         ttk.Radiobutton(dialog, text="CoNLL-U (Akademik)", variable=format_var, value="conllu").pack(anchor=tk.W, padx=20, pady=2)
         ttk.Radiobutton(dialog, text="CSV (Excel Uyumlu)", variable=format_var, value="csv").pack(anchor=tk.W, padx=20, pady=2)
-        ttk.Radiobutton(dialog, text="JSON (Yapısal Veri)", variable=format_var, value="json").pack(anchor=tk.W, padx=20, pady=2)
+        ttk.Radiobutton(dialog, text="CSV (Cümle Bağlamlı)", variable=format_var, value="csv_context").pack(anchor=tk.W, padx=20, pady=2)
+        ttk.Radiobutton(dialog, text="JSON (Liste - Label Studio)", variable=format_var, value="json_list").pack(anchor=tk.W, padx=20, pady=2)
+        ttk.Radiobutton(dialog, text="JSONL (Satır Satır)", variable=format_var, value="jsonl").pack(anchor=tk.W, padx=20, pady=2)
         ttk.Radiobutton(dialog, text="XML (Web Standardı)", variable=format_var, value="xml").pack(anchor=tk.W, padx=20, pady=2)
         
         def proceed():
@@ -659,8 +749,12 @@ class CorpusGUI:
                 self._export_corpus_as_conllu()
             elif fmt == "csv":
                 self._export_corpus_as_csv()
-            elif fmt == "json":
-                self._export_corpus_as_json()
+            elif fmt == "csv_context":
+                self._export_corpus_as_csv_with_context()
+            elif fmt == "json_list":
+                self._export_corpus_as_json_list()
+            elif fmt == "jsonl":
+                self._export_corpus_as_jsonl()
             elif fmt == "xml":
                 self._export_corpus_as_xml()
                 
@@ -753,12 +847,49 @@ class CorpusGUI:
             messagebox.showerror("Hata", f"Export hatası: {e}")
             self.status_var.set("Hata oluştu")
 
-    def _export_corpus_as_json(self):
+    def _export_corpus_as_csv_with_context(self):
+        """Export database to CSV format with full sentence context for each token."""
+        filename = filedialog.asksaveasfilename(
+            title="CSV (Cümle Bağlamlı) Olarak Kaydet",
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        
+        if not filename:
+            return
+            
+        try:
+            self.status_var.set("Genişletilmiş CSV export hazırlanıyor...")
+            self.root.update()
+            
+            import csv
+            query = CorpusQuery(self.db_path.get())
+            generator = query.get_all_tokens_for_export()
+            
+            with open(filename, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.writer(f)
+                # Add sent_text to the header
+                writer.writerow(['doc_name', 'sent_id', 'sent_text', 'token_id', 'form', 'lemma', 'upos', 'xpos', 'head', 'dep_rel'])
+                
+                for row, _ in generator:
+                    sent_id, token_num, form, lemma, upos, xpos, morph, head, dep, text, doc = row
+                    # Add sentence text (text) to the row
+                    writer.writerow([doc, sent_id, text, token_num + 1, form, lemma, upos, xpos, head, dep])
+                
+            query.close()
+            self.status_var.set("Genişletilmiş CSV export tamamlandı")
+            messagebox.showinfo("Başarılı", f"Dosya oluşturuldu:\n{filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Hata", f"Export hatası: {e}")
+            self.status_var.set("Hata oluştu")
+
+    def _export_corpus_as_jsonl(self):
         """Export database to JSON Lines (JSONL) format for memory efficiency"""
         filename = filedialog.asksaveasfilename(
             title="JSONL Olarak Kaydet",
             defaultextension=".jsonl",
-            filetypes=[("JSONL files", "*.jsonl"), ("JSON files", "*.json"), ("All files", "*.*")]
+            filetypes=[("JSONL files", "*.jsonl"), ("All files", "*.*")]
         )
         
         if not filename:
@@ -806,6 +937,74 @@ class CorpusGUI:
             query.close()
             self.status_var.set("JSONL export tamamlandı")
             messagebox.showinfo("Başarılı", f"Dosya oluşturuldu:\n{filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Hata", f"Export hatası: {e}")
+            self.status_var.set("Hata oluştu")
+
+    def _export_corpus_as_json_list(self):
+        """Export database to JSON List format (Label Studio compatible)"""
+        filename = filedialog.asksaveasfilename(
+            title="JSON (Liste) Olarak Kaydet",
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        
+        if not filename:
+            return
+            
+        try:
+            self.status_var.set("JSON export hazırlanıyor...")
+            self.root.update()
+            
+            import json
+            query = CorpusQuery(self.db_path.get())
+            generator = query.get_all_tokens_for_export()
+            
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write('[\n') # Start list
+                
+                current_sentence = None
+                first_item = True
+                
+                for row, is_new_sent in generator:
+                    sent_id, token_num, form, lemma, upos, xpos, morph, head, dep, text, doc = row
+                    
+                    if is_new_sent:
+                        if current_sentence:
+                            if not first_item:
+                                f.write(',\n')
+                            json.dump(current_sentence, f, ensure_ascii=False)
+                            first_item = False
+                        
+                        current_sentence = {
+                            'sent_id': sent_id,
+                            'doc_name': doc,
+                            'text': text,
+                            'tokens': []
+                        }
+                    
+                    current_sentence['tokens'].append({
+                        'id': token_num + 1,
+                        'form': form,
+                        'lemma': lemma,
+                        'upos': upos,
+                        'xpos': xpos,
+                        'head': head,
+                        'dep_rel': dep
+                    })
+                
+                # Last sentence
+                if current_sentence:
+                    if not first_item:
+                        f.write(',\n')
+                    json.dump(current_sentence, f, ensure_ascii=False)
+                
+                f.write('\n]') # End list
+                
+            query.close()
+            self.status_var.set("JSON export tamamlandı")
+            messagebox.showinfo("Başarılı", f"Dosya oluşturuldu:\n{filename}\n\nBu dosyayı Label Studio'ya aktarabilirsiniz.")
             
         except Exception as e:
             messagebox.showerror("Hata", f"Export hatası: {e}")
@@ -966,18 +1165,28 @@ class CorpusGUI:
         plot_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Initialize Visualizer
-        try:
-            from gui.visualizer import CorpusVisualizer
-            self.visualizer = CorpusVisualizer(plot_frame)
-        except ImportError as e:
-            ttk.Label(plot_frame, text=f"Görselleştirme modülü yüklenemedi:\n{e}", 
-                     foreground="red").pack(expand=True)
-            self.visualizer = None
+        self.visualizer = None
+        
+        # Keep a reference to the plot_frame
+        self.viz_plot_frame = plot_frame
+
+    def _lazy_load_visualizer(self):
+        """Lazy load the CorpusVisualizer to avoid slow startup."""
+        if self.visualizer is None:
+            try:
+                from gui.visualizer import CorpusVisualizer
+                # Use the stored frame to initialize the visualizer
+                self.visualizer = CorpusVisualizer(self.viz_plot_frame)
+            except ImportError as e:
+                ttk.Label(self.viz_plot_frame, text=f"Görselleştirme modülü yüklenemedi:\n{e}", 
+                         foreground="red").pack(expand=True)
+                return False
+        return True
 
     def show_bar_chart(self):
         """Show bar chart of top words"""
         if not self._check_db_ready(): return
-        if not self.visualizer: return
+        if not self._lazy_load_visualizer(): return
         
         try:
             query = CorpusQuery(self.db_path.get())
@@ -998,7 +1207,7 @@ class CorpusGUI:
     def show_pie_chart(self):
         """Show pie chart of POS distribution"""
         if not self._check_db_ready(): return
-        if not self.visualizer: return
+        if not self._lazy_load_visualizer(): return
         
         try:
             query = CorpusQuery(self.db_path.get())
@@ -1019,7 +1228,7 @@ class CorpusGUI:
     def show_word_cloud(self):
         """Show word cloud"""
         if not self._check_db_ready(): return
-        if not self.visualizer: return
+        if not self._lazy_load_visualizer(): return
         
         try:
             query = CorpusQuery(self.db_path.get())
@@ -1173,7 +1382,7 @@ class CorpusGUI:
         """Setup results display section"""
         
         # Results frame
-        results_frame = ttk.LabelFrame(parent, text="Sonuçlar", padding="10")
+        results_frame = ttk.LabelFrame(parent, text="Rapor Hazırlama", padding="10")
         results_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         results_frame.columnconfigure(0, weight=1)
         results_frame.rowconfigure(0, weight=1)

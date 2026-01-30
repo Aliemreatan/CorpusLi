@@ -1,0 +1,5 @@
+Model,Doğruluk (Accuracy),F1-Score,Hata Oranı
+CustomBERT,%71.19,0.6476,%28.81
+Stanza,%86.44,0.8585,%13.56
+Zeyrek,%0.00,0.0000,%100.00
+Simple,%37.29,0.3068,%62.71
