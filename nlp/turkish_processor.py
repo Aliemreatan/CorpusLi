@@ -257,26 +257,16 @@ class TurkishNLPProcessor:
 
     def _normalize_turkish_text(self, text: str) -> str:
         """
-        Normalize Turkish text by handling special characters and lowercasing properly
+        Normalize Turkish text by handling special characters and lowercasing properly.
+        This method provides correct lowercasing for Turkish characters.
         """
-        # Dictionary for Turkish specific lowercase conversion
-        lower_map = {
-            ord('I'): 'ı',
-            ord('İ'): 'i',
-            ord('Ğ'): 'ğ',
-            ord('Ü'): 'ü',
-            ord('Ö'): 'ö',
-            ord('Ş'): 'ş',
-            ord('Ç'): 'ç'
-        }
-        
-        # Translate and return
-        return text.translate(lower_map)
+        # Correct Turkish lowercasing
+        text = text.replace('I', 'ı').replace('İ', 'i')
+        return text.lower()
 
     def _process_simple(self, text: str) -> List[Dict[str, Any]]:
         """Process text using simple tokenization with basic heuristic POS tagging"""
-        # Simple Turkish text normalization
-        text = self._normalize_turkish_text(text)
+        # The normalization is now done per token to handle case correctly.
         
         # Basic tokenization using regex - NOW INCLUDES TURKISH CHARACTERS
         # Turkish characters: ç, ğ, ı, İ, ö, ş, ü, Ç, Ğ, İ, Ö, Ş, Ü
@@ -286,13 +276,13 @@ class TurkishNLPProcessor:
         for i, token in enumerate(tokens):
             # Basic POS heuristic
             pos = 'NOUN' # Default
-            token_lower = token.lower()
+            token_lower = self._normalize_turkish_text(token) # Use correct Turkish lowercasing
             
             if token_lower in ['ve', 'veya', 'ile', 'ama', 'fakat', 'ancak', 'çünkü']:
                 pos = 'CCONJ'
             elif token_lower in ['bu', 'şu', 'o', 'bunlar', 'şunlar', 'onlar', 'ben', 'sen', 'biz', 'siz']:
                 pos = 'PRON'
-            elif token_lower in ['bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz', 'on', 'yüz', 'bin']:
+            elif token_lower.isnumeric() or token_lower in ['bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz', 'on', 'yüz', 'bin']:
                 pos = 'NUM'
             elif token_lower in ['var', 'yok', 'değil', 'evet', 'hayır']:
                 pos = 'VERB' # Treat existentials as verbs for simplicity
