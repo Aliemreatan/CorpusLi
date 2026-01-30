@@ -116,7 +116,15 @@ class CustomBERTProcessor:
         """Hugging Face BERT modeli ile metin işleme"""
         # Tokenize the text first to get proper alignment
         # Use return_offsets_mapping=True to get character positions
-        inputs = self.tokenizer(text, return_tensors="pt", add_special_tokens=True, return_offsets_mapping=True)
+        max_len = self.model.config.max_position_embeddings
+        inputs = self.tokenizer(
+            text,
+            return_tensors="pt",
+            add_special_tokens=True,
+            return_offsets_mapping=True,
+            truncation=True,
+            max_length=max_len
+        )
         offset_mapping = inputs['offset_mapping'][0].tolist()
         all_tokens = self.tokenizer.convert_ids_to_tokens(inputs['input_ids'][0])
 
