@@ -7,17 +7,90 @@ multiple backends with fallback strategies.
 
 import re
 import logging
-from typing import List, Tuple, Optional, Dict, Any
+from typing import List, Tuple, Optional, Dict, Any, Union
 from pathlib import Path
 import sys
 import os
 
-# Add the nlp module to the path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Try to import transformers for BERTLemmatizer
+TRANSFORMERS_AVAILABLE = False
+try:
+    import torch
+    from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+    TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    logger.warning("Transformers library not available for BERTLemmatizer in TurkishNLPProcessor")
+
+class BERTLemmatizer:
+    """
+    Wrapper for LiProject/BERT-Turkish-Lemmatization-V3 model.
+    Handles sentence-level input by processing tokens individually or in context.
+    """
+    
+    def __init__(self, model_path: str = "LiProject/BERT-Turkish-Lemmatization-V3"):
+        self.model_path = model_path
+        self.tokenizer = None
+        self.model = None
+        self.pipeline = None
+        self.is_loaded = False
+        
+        if TRANSFORMERS_AVAILABLE:
+            self._load_model()
+
+    def _load_model(self):
+        try:
+            logger.info(f"Loading BERT Lemmatization model: {self.model_path}")
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_path)
+            
+            self.pipeline = pipeline(
+                "text2text-generation",
+                model=self.model,
+                tokenizer=self.tokenizer,
+                device=0 if torch.cuda.is_available() else -1
+            )
+            self.is_loaded = True
+            logger.info("BERT Lemmatization model loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load BERT Lemmatization model: {e}")
+            self.is_loaded = False
+
+    def lemmatize_batch(self, words_with_contexts: List[Dict[str, str]]) -> List[str]:
+        if not self.is_loaded or not words_with_contexts:
+            return [item['word'].lower() for item in words_with_contexts]
+            
+        try:
+            # Senin betiğinle aynı: Saf kelimeleri listeye alıyoruz
+            input_texts = [item['word'] for item in words_with_contexts]
+                
+            # Pipeline parametrelerini senin betiğinle birebir aynı yapıyoruz
+            # En yüksek doğruluk ve temiz çıktı için altın standart konfigürasyon
+            results = self.pipeline(
+                input_texts,
+                max_new_tokens=256,
+                num_beams=6,
+                do_sample=False,
+                early_stopping=True,
+                length_penalty=0.7,
+                repetition_penalty=1.1,
+                no_repeat_ngram_size=2,
+                batch_size=8
+            )
+            
+            lemmas = []
+            for res in results:
+                lemma = res['generated_text'].strip()
+                # Modeli doğrudan dinliyoruz, cevabı olduğu gibi alıyoruz
+                lemmas.append(lemma if lemma else None)
+                
+            return lemmas
+        except Exception as e:
+            logger.error(f"Error in batch lemmatization: {e}")
+            return [item['word'].lower() for item in words_with_contexts]
 
 class TurkishNLPProcessor:
     """Main NLP processor with fallback strategies for Turkish text"""
@@ -36,11 +109,12 @@ class TurkishNLPProcessor:
         self.bert_model_path = bert_model_path
         self.nlp = None
         self.custom_bert_processor = None
+        self.bert_lemmatizer = None
         self.available_backends = []
         
         # Initialize processor
         self._initialize_backend()
-        
+    
     def _initialize_backend(self):
         """Initialize the selected NLP backend"""
         if self.backend == 'spacy':
@@ -54,7 +128,16 @@ class TurkishNLPProcessor:
         else:
             # Try to find best available backend
             self._auto_detect_backend()
-    
+        
+        # Always try to load BERT lemmatizer if transformers is available
+        if TRANSFORMERS_AVAILABLE:
+            try:
+                self.bert_lemmatizer = BERTLemmatizer()
+                if self.bert_lemmatizer.is_loaded:
+                    logger.info("New BERT Lemmatizer (LiProject/BERT-Turkish-Lemmatization-V3) integrated successfully")
+            except Exception as e:
+                logger.debug(f"BERT lemmatizer could not be auto-loaded: {e}")
+
     def _init_spacy(self):
         """Initialize spaCy Turkish model"""
         try:
@@ -92,7 +175,11 @@ class TurkishNLPProcessor:
     def _init_custom_bert(self):
         """Initialize custom BERT model from Hugging Face"""
         try:
-            from custom_bert_processor import create_custom_bert_processor
+            # Try absolute and relative imports
+            try:
+                from nlp.custom_bert_processor import create_custom_bert_processor
+            except ImportError:
+                from custom_bert_processor import create_custom_bert_processor
             
             # Create BERT processor with Hugging Face model
             self.custom_bert_processor = create_custom_bert_processor(
@@ -198,8 +285,18 @@ class TurkishNLPProcessor:
         doc = self.nlp(text)
         tokens = []
         
+        # Track position if Stanza fails to provide it
+        current_pos = 0
+        
         for sent in doc.sentences:
             for word in sent.words:
+                # Fallback for start/end char if Stanza doesn't provide them
+                start = word.start_char if word.start_char is not None else text.find(word.text, current_pos)
+                if start == -1: start = current_pos # Last resort
+                
+                end = word.end_char if word.end_char is not None else start + len(word.text)
+                current_pos = end
+
                 token_data = {
                     'word': word.text,
                     'norm': word.lemma.lower() if word.lemma else word.text.lower(),
@@ -209,8 +306,8 @@ class TurkishNLPProcessor:
                     'morph': self._format_stanza_morph(word.feats),
                     'dep_head': word.head if word.head != 0 else None,
                     'dep_rel': word.deprel if word.deprel != 'root' else 'root',
-                    'start_char': word.start_char,
-                    'end_char': word.end_char,
+                    'start_char': start,
+                    'end_char': end,
                     'is_punctuation': word.text in '.,;:!?"()[]{}',
                     'is_space': False
                 }
@@ -219,18 +316,55 @@ class TurkishNLPProcessor:
         return tokens
     
     def _process_with_custom_bert(self, text: str) -> List[Dict[str, Any]]:
-        """Process text using custom BERT model"""
+        """Process text using custom BERT model for POS and new BERTLemmatizer for lemmas"""
         if self.custom_bert_processor is None:
             logger.warning("Custom BERT processor not available")
             return self._process_simple(text)
         
         try:
             tokens = self.custom_bert_processor.process_text(text)
-            logger.info(f"Custom BERT processed {len(tokens)} tokens")
+            logger.info(f"Custom BERT (POS) processed {len(tokens)} tokens")
+            
+            # Enrich with lemmas using the new BERTLemmatizer
+            if self.bert_lemmatizer and self.bert_lemmatizer.is_loaded:
+                # Prepare batch for lemmatization
+                words_to_lemmatize = [{'word': t['word'], 'context': text} for t in tokens if isinstance(t, dict)]
+                lemmas = self.bert_lemmatizer.lemmatize_batch(words_to_lemmatize)
+                
+                # Update tokens and ensure positions
+                current_pos = 0
+                for t, lemma in zip(tokens, lemmas):
+                    if not isinstance(t, dict): continue
+                    
+                    # Ensure position data is present for DB NOT NULL constraints
+                    if t.get('start_char') is None or t.get('start_char') == -1:
+                        word_text = t.get('word', '')
+                        start = text.find(word_text, current_pos)
+                        if start == -1: start = current_pos
+                        t['start_char'] = start
+                        t['end_char'] = start + len(word_text)
+                    
+                    current_pos = t.get('end_char', current_pos)
+                    
+                    t['lemma'] = lemma
+                    t['norm'] = lemma.lower() if lemma else t.get('word', '').lower()
+                    
             return tokens
         except Exception as e:
             logger.error(f"Custom BERT processing error: {e}")
             return self._process_simple(text)
+
+    def _format_morph_features(self, morph) -> Optional[str]:
+        """Format spaCy morphology features to string"""
+        if not morph:
+            return None
+        return str(morph)
+
+    def _format_stanza_morph(self, feats) -> Optional[str]:
+        """Format Stanza morphology features to string"""
+        if not feats:
+            return None
+        return str(feats)
 
     def _map_pos_to_turkish(self, pos: str) -> str:
         """Map Universal POS tags to Turkish equivalents"""

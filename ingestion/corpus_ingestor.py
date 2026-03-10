@@ -100,6 +100,13 @@ class CorpusIngestor:
             except Exception as e:
                 logger.error(f"Error processing file {file_path}: {e}")
                 self.stats['errors'] += 1
+                # Attempt to clean up failed document record
+                try:
+                    doc_hash, _ = self._compute_file_info(file_path)
+                    self._delete_document_by_hash(doc_hash)
+                    logger.info(f"Cleaned up failed document record for: {file_path.name}")
+                except:
+                    pass
         
         # Final statistics
         logger.info("=== INGESTION COMPLETE ===")
@@ -373,7 +380,39 @@ class CorpusIngestor:
         """Check if document already exists in database"""
         cursor = self.db.connection.cursor()
         cursor.execute("SELECT doc_id FROM documents WHERE file_hash = ?", (doc_hash,))
-        return cursor.fetchone() is not None
+        result = cursor.fetchone()
+        if result:
+            # Check if it actually has sentences or tokens
+            doc_id = result[0]
+            cursor.execute("SELECT COUNT(*) FROM tokens WHERE doc_id = ?", (doc_id,))
+            token_count = cursor.fetchone()[0]
+            if token_count == 0:
+                logger.warning(f"Document entry exists but has 0 tokens. Deleting and re-processing...")
+                self._delete_document_by_id(doc_id)
+                return False
+            return True
+        return False
+    
+    def _delete_document_by_hash(self, doc_hash: str) -> None:
+        """Delete document from database using its hash"""
+        cursor = self.db.connection.cursor()
+        cursor.execute("SELECT doc_id FROM documents WHERE file_hash = ?", (doc_hash,))
+        result = cursor.fetchone()
+        if result:
+            self._delete_document_by_id(result[0])
+
+    def _delete_document_by_id(self, doc_id: int) -> None:
+        """Delete document and its associated data by ID"""
+        cursor = self.db.connection.cursor()
+        try:
+            cursor.execute("DELETE FROM tokens WHERE doc_id = ?", (doc_id,))
+            cursor.execute("DELETE FROM sentences WHERE doc_id = ?", (doc_id,))
+            cursor.execute("DELETE FROM documents WHERE doc_id = ?", (doc_id,))
+            self.db.connection.commit()
+            logger.info(f"Deleted document record ID {doc_id} and its associated data.")
+        except Exception as e:
+            logger.error(f"Error deleting document ID {doc_id}: {e}")
+            self.db.connection.rollback()
     
     def _create_document_record(self, file_path: Path, file_size: int, text_length: int, doc_hash: str) -> int:
         """Create document record in database"""
@@ -484,21 +523,33 @@ class CorpusIngestor:
         
         # Insert batch
         token_data = []
+        current_pos = 0
         for token in tokens_batch:
+            # Final safety check for start_char and end_char to avoid NOT NULL constraint failure
+            start = token.get('start_char')
+            if start is None:
+                start = current_pos
+            
+            end = token.get('end_char')
+            if end is None:
+                end = start + len(token.get('word', token.get('form', '')))
+            
+            current_pos = end
+
             token_data.append((
                 token['doc_id'],
                 token['sent_id'],
                 token['token_number'],
-                token.get('word', token.get('form', '')),  # Use 'word' field, fallback to 'form'
+                token.get('word', token.get('form', '')),
                 token['norm'],
-                token.get('lemma'),  # May be None now
+                token.get('lemma'),
                 token['upos'],
                 token.get('xpos'),
                 token.get('morph'),
                 token.get('dep_head'),
                 token.get('dep_rel'),
-                token['start_char'],
-                token['end_char'],
+                start,
+                end,
                 int(token['is_punctuation']),
                 int(token['is_space'])
             ))

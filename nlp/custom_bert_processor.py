@@ -57,7 +57,7 @@ class CustomBERTProcessor:
                 return
             
             # Use provided model path or fallback to default
-            model_path = self.model_path if self.model_path else "LiProject/Bert-turkish-pos-trained"
+            model_path = self.model_path if self.model_path else "LiProject/Bert-Turkish-POS-Trained-V2"
             
             logger.info(f"Hugging Face modeli yükleniyor: {model_path}")
             
@@ -78,6 +78,8 @@ class CustomBERTProcessor:
             
         except Exception as e:
             logger.error(f"BERT model yüklenemedi: {e}")
+            import traceback
+            traceback.print_exc()
             logger.info("Fallback olarak basit işleme kullanılıyor")
             self.is_loaded = False
     

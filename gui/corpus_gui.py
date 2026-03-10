@@ -151,55 +151,58 @@ class CorpusGUI:
         # Configure grid
         lemma_frame.columnconfigure(0, weight=1)
         
-        # Stanza Lemma Updater Tool
-        stanza_frame = ttk.LabelFrame(lemma_frame, text="Stanza ile Lemma Güncelleme", padding="10")
-        stanza_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
+        # BERT Lemma Updater Tool
+        bert_lemma_frame = ttk.LabelFrame(lemma_frame, text="BERT ile Lemma Güncelleme", padding="10")
+        bert_lemma_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
         
-        ttk.Label(stanza_frame, text="Bu araç, veritabanındaki tüm metinleri Stanza NLP kütüphanesini kullanarak yeniden işler ve 'lemma' (kelime kökü/gövdesi) bilgilerini günceller.", 
+        ttk.Label(bert_lemma_frame, text="Bu araç, veritabanındaki tüm metinleri LiProject/BERT-Turkish-Lemmatization-V3 modelini kullanarak yeniden işler ve 'lemma' bilgilerini günceller.", 
                  wraplength=800).pack(anchor=tk.W, pady=(0, 10))
         
-        ttk.Label(stanza_frame, text="Uyarı: Bu işlem, veritabanının büyüklüğüne bağlı olarak çok uzun sürebilir ve mevcut lemma verilerinin üzerine yazar!", 
+        ttk.Label(bert_lemma_frame, text="Özellik: Bu model kelimeleri cümle bağlamıyla birlikte değerlendirerek en doğru kökü bulur.", 
+                 font=("Arial", 9, "italic")).pack(anchor=tk.W, pady=(0, 10))
+        
+        ttk.Label(bert_lemma_frame, text="Uyarı: Bu işlem, veritabanının büyüklüğüne bağlı olarak zaman alabilir ve mevcut lemma verilerinin üzerine yazar!", 
                  foreground="red").pack(anchor=tk.W, pady=(10, 5))
         
-        ttk.Button(stanza_frame, text="Lemma Bilgilerini Stanza ile Güncelle", 
-                  command=self.run_stanza_lemma_update).pack(pady=10)
+        ttk.Button(bert_lemma_frame, text="Lemma Bilgilerini BERT ile Güncelle", 
+                  command=self.run_bert_lemma_update).pack(pady=10)
 
-    def run_stanza_lemma_update(self):
-        """Run Stanza lemma update in a background thread."""
+    def run_bert_lemma_update(self):
+        """Run BERT lemma update in a background thread."""
         if not self.db_path.get():
             messagebox.showwarning("Uyarı", "Lütfen önce veritabanı dosyasını seçin!")
             return
             
         result = messagebox.askyesno("Onay", 
-                                   "Bu işlem veritabanındaki tüm 'lemma' bilgilerini Stanza ile güncelleyecektir.\n"
-                                   "İşlem uzun sürebilir ve geri alınamaz. Devam etmek istiyor musunuz?")
+                                   "Bu işlem veritabanındaki tüm 'lemma' bilgilerini yeni BERT modeli ile güncelleyecektir.\n"
+                                   "İşlem bağlamsal analiz yapacağı için Stanza'dan daha doğrudur. Devam etmek istiyor musunuz?")
         
         if not result:
             return
             
         # Start in background thread
-        thread = threading.Thread(target=self._stanza_lemma_thread)
+        thread = threading.Thread(target=self._bert_lemma_thread)
         thread.daemon = True
         thread.start()
 
-    def _stanza_lemma_thread(self):
-        """Background thread for Stanza lemma updating."""
+    def _bert_lemma_thread(self):
+        """Background thread for BERT lemma updating."""
         try:
-            from nlp.lemma_updater import StanzaLemmaUpdater
+            from nlp.lemma_updater import BERTLemmaUpdater
             
-            self.status_var.set("Stanza başlatılıyor... (Bu işlem biraz zaman alabilir)")
+            self.status_var.set("BERT Lemmatizer başlatılıyor... (Model yükleniyor)")
             self.progress['value'] = 0
             self.root.update_idletasks()
             
             # Create updater with a progress callback
-            updater = StanzaLemmaUpdater(self.db_path.get(), progress_callback=self.update_progress)
+            updater = BERTLemmaUpdater(self.db_path.get(), progress_callback=self.update_progress)
             updater.update_all_lemmas()
             
             # Signal completion
-            self.root.after(0, self._stanza_lemma_complete)
+            self.root.after(0, self._bert_lemma_complete)
             
         except Exception as e:
-            self.root.after(0, self._stanza_lemma_error, str(e))
+            self.root.after(0, self._bert_lemma_error, str(e))
 
     def update_progress(self, value, text):
         """Callback to update the progress bar and status from a thread."""
@@ -207,18 +210,18 @@ class CorpusGUI:
         self.status_var.set(text)
         self.root.update_idletasks()
 
-    def _stanza_lemma_complete(self):
+    def _bert_lemma_complete(self):
         """Handle successful lemma update."""
-        self.status_var.set("Lemma güncelleme işlemi tamamlandı.")
+        self.status_var.set("BERT Lemma güncelleme işlemi tamamlandı.")
         self.progress['value'] = 100
-        messagebox.showinfo("Başarılı", "Veritabanındaki tüm lemma bilgileri Stanza ile başarıyla güncellendi!")
+        messagebox.showinfo("Başarılı", "Veritabanındaki tüm lemma bilgileri BERT ile başarıyla güncellendi!")
         self.progress['value'] = 0 # Reset progress bar
 
-    def _stanza_lemma_error(self, error_msg):
+    def _bert_lemma_error(self, error_msg):
         """Handle lemma update error."""
-        self.status_var.set("Hata: Lemma güncelleme başarısız.")
+        self.status_var.set("Hata: BERT Lemma güncelleme başarısız.")
         self.progress['value'] = 0
-        messagebox.showerror("Hata", f"Lemma güncelleme sırasında bir hata oluştu:\n{error_msg}")
+        messagebox.showerror("Hata", f"BERT Lemma güncelleme sırasında bir hata oluştu:\n{error_msg}")
     def setup_database_tab(self):
         """Setup database configuration tab"""
         db_frame = ttk.Frame(self.notebook, padding="10")

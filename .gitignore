@@ -1,5 +1,28 @@
+# Python Artifacts
 __pycache__/
 *.pyc
-output/
 .venv/
+
+# IDE Configuration
+.vscode/
+
+# Logs
+logs/
+
+# Generated Data & Model Outputs
+output/
+model_outputs/
+bert_dataset/
+
+# Databases
+*.db
+*.sqlite3
+
+# Data files
+conllu-to-csv/*.csv
+karsılastırma/*.csv
+label_studio_setup/*.json
+label_studio_setup/*.jsonl
+
+# Specific ignored files (from original)
 Cleaned-for-tags.csv
