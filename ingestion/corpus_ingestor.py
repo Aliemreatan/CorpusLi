@@ -31,7 +31,7 @@ class CorpusIngestor:
         
         Args:
             db_path: Path to SQLite database
-            nlp_backend: NLP backend to use ('auto', 'spacy', 'stanza', 'simple')
+            nlp_backend: NLP backend to use ('auto', 'spacy', 'simple', 'custom_bert')
         """
         self.db = CorpusDatabase(db_path)
         self.db.connect()

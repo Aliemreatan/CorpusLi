@@ -47,46 +47,6 @@ def test_spacy_turkish():
         print("✗ spaCy not installed")
         return False, None
 
-def test_stanza_turkish():
-    """Test Stanza Turkish if available"""
-    try:
-        import stanza
-        
-        print("\nTesting Stanza Turkish...")
-        try:
-            # Try to download and load Turkish model
-            stanza.download('tr')
-            nlp = stanza.Pipeline('tr', processors='tokenize,pos,lemma,depparse')
-            print("✓ Stanza Turkish model loaded successfully")
-            
-            test_text = "Bu bir test cümlesidir. Türkçe dil işleme için kullanılır."
-            doc = nlp(test_text)
-            
-            print(f"Sentences: {len(doc.sentences)}")
-            tokens = []
-            for sent in doc.sentences:
-                for word in sent.words[:5]:  # First 5 words
-                    print(f"  {word.text} -> lemma: {word.lemma}, upos: {word.upos}, head: {word.head}")
-                    tokens.append((word.text, word.lemma, word.upos))
-            
-            # Check for dependency parsing
-            has_deps = any(sent.words[0].head != 0 if sent.words else False for sent in doc.sentences)
-            print(f"✓ Dependency parsing available: {has_deps}")
-            
-            return True, {
-                'sentences': len(doc.sentences),
-                'tokens': tokens,
-                'has_deps': has_deps
-            }
-            
-        except Exception as e:
-            print(f"✗ Error loading Stanza Turkish: {e}")
-            return False, None
-            
-    except ImportError:
-        print("✗ Stanza not installed")
-        return False, None
-
 def simple_turkish_tokenizer(text):
     """Simple fallback Turkish tokenizer"""
     import re
@@ -125,10 +85,6 @@ def compare_tools():
     if spacy_success:
         results['spacy'] = spacy_data
         
-    stanza_success, stanza_data = test_stanza_turkish()
-    if stanza_success:
-        results['stanza'] = stanza_data
-        
     simple_success, simple_data = test_simple_tokenization()
     if simple_success:
         results['simple'] = simple_data
@@ -142,11 +98,6 @@ def compare_tools():
     else:
         print("✗ spaCy: Not available")
         
-    if 'stanza' in results:
-        print("✓ Stanza: Stanford NLP with Turkish support")  
-    else:
-        print("✗ Stanza: Not available")
-        
     print("✓ Simple: Basic tokenization (fallback)")
     
     print("\n=== RECOMMENDATION ===")
@@ -156,11 +107,6 @@ def compare_tools():
         print("  - Easy to use")
         print("  - Good Turkish language support")
         print("  - Install: python -m spacy download tr_core_news_sm")
-    elif 'stanza' in results:
-        print("RECOMMENDED: Stanza Turkish")
-        print("  - Strong dependency parsing")
-        print("  - Good morphosyntactic features")
-        print("  - Install: pip install stanza && stanza.download('tr')")
     else:
         print("FALLBACK: Simple tokenization")
         print("  - Only basic tokenization available")

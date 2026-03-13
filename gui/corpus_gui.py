@@ -175,7 +175,7 @@ class CorpusGUI:
             
         result = messagebox.askyesno("Onay", 
                                    "Bu işlem veritabanındaki tüm 'lemma' bilgilerini yeni BERT modeli ile güncelleyecektir.\n"
-                                   "İşlem bağlamsal analiz yapacağı için Stanza'dan daha doğrudur. Devam etmek istiyor musunuz?")
+                                   "İşlem bağlamsal analiz yapacağı için daha doğrudur. Devam etmek istiyor musunuz?")
         
         if not result:
             return
@@ -569,7 +569,7 @@ class CorpusGUI:
         ttk.Label(parent, text="NLP Backend:").grid(row=1, column=0, sticky=tk.W, pady=(10, 0))
         self.backend_var = tk.StringVar(value="custom_bert")  # Default to BERT now
         backend_combo = ttk.Combobox(parent, textvariable=self.backend_var,
-                                    values=["custom_bert", "stanza", "spacy", "simple"], state="readonly")
+                                    values=["custom_bert", "spacy", "simple"], state="readonly")
         backend_combo.grid(row=1, column=1, sticky=tk.W, padx=(10, 5), pady=(10, 0))
 
         # CSV Column Name
@@ -1329,7 +1329,7 @@ class CorpusGUI:
         ttk.Label(analysis_frame, text="NLP Backend:").grid(row=0, column=0, sticky=tk.W)
         self.realtime_backend_var = tk.StringVar(value="custom_bert")
         backend_combo = ttk.Combobox(analysis_frame, textvariable=self.realtime_backend_var,
-                                    values=["custom_bert", "stanza", "spacy", "simple"], state="readonly")
+                                    values=["custom_bert", "spacy", "simple"], state="readonly")
         backend_combo.grid(row=0, column=1, sticky=tk.W, padx=(10, 5))
         
         # Word selection
@@ -1945,9 +1945,7 @@ class CorpusGUI:
             # Check for common issues
             if "No module named" in str(e):
                 backend_name = self.realtime_backend_var.get()
-                if backend_name == "stanza":
-                    error_msg = "Stanza kütüphanesi bulunamadı!\n\nKurulum:\npip install stanza"
-                elif backend_name == "spacy":
+                if backend_name == "spacy":
                     error_msg = "SpaCy kütüphanesi bulunamadı!\n\nKurulum:\npip install spacy"
                 elif backend_name == "custom_bert":
                     error_msg = "Transformers kütüphanesi bulunamadı!\n\nKurulum:\npip install transformers torch"
@@ -1969,7 +1967,6 @@ class CorpusGUI:
         # Backend info
         backend_names = {
             "custom_bert": "BERT (Hugging Face)",
-            "stanza": "Stanza",
             "spacy": "SpaCy",
             "simple": "Basit Tokenizasyon"
         }
@@ -1980,7 +1977,7 @@ class CorpusGUI:
         self.realtime_results_text.insert(tk.END, "Token Analizi:\n")
         for i, token in enumerate(tokens, 1):
             if isinstance(token, dict):
-                # Structured token (BERT, Stanza, SpaCy)
+                # Structured token (BERT, SpaCy)
                 word = token.get('word', token.get('text', 'N/A'))
                 pos_en = token.get('pos', token.get('upos', 'N/A'))
                 pos_tr = token.get('upos_tr', 'N/A')  # Turkish POS tag

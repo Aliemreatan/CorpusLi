@@ -49,7 +49,7 @@ class CorpusManipulator:
         
         Args:
             db_path: Veritabanı dosya yolu
-            nlp_backend: NLP backend ('auto', 'spacy', 'stanza', 'simple')
+            nlp_backend: NLP backend ('auto', 'spacy', 'simple', 'custom_bert')
         """
         self.db_path = db_path
         self.nlp_backend = nlp_backend

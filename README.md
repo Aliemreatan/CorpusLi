@@ -11,7 +11,7 @@ Bu proje; büyük metin verilerini (TXT, JSON, XML) veritabanına aktarır, **BE
 ## 🚀 Özellikler
 
 ### 🧠 1. Gelişmiş NLP Altyapısı
-*   **Çoklu Backend Desteği:** `Simple` (Hızlı), `spaCy`, `Stanza` ve **`Custom BERT`**.
+*   **Çoklu Backend Desteği:** `Simple` (Hızlı), `spaCy` ve **`Custom BERT`**.
 *   **BERT Entegrasyonu:** Hugging Face modelleri (`LiProject/Bert-turkish-pos-trained`) ile yüksek doğrulukta POS etiketleme.
 *   **Re-Tagging:** Mevcut veritabanını tek tıkla BERT ile yeniden analiz etme.
 
@@ -60,14 +60,13 @@ pip install -r requirements.txt
 ```
 
 ### 4. Dil Modellerini İndirin (Opsiyonel ama Önerilen)
-Tam performans için spaCy veya Stanza modellerini indirin (BERT otomatik iner).
+Tam performans için spaCy modellerini indirin (BERT otomatik iner).
+
 ```bash
 # spaCy Türkçe Modeli
 python -m spacy download tr_core_news_sm
-
-# Stanza Türkçe Modeli (Python konsolunda)
-# >>> import stanza; stanza.download('tr')
 ```
+
 
 ---
 
@@ -107,7 +106,7 @@ Analiz sekmesinde "CQL" seçeneğini seçerek şu sorguları yapabilirsiniz:
 ```
 corpus_manipulator/
 ├── gui/                  # Grafik Arayüz kodları (Visualizer, Editor vb.)
-├── nlp/                  # Dil işleme (BERT, spaCy, Stanza entegrasyonu)
+├── nlp/                  # Dil işleme (BERT ve spaCy entegrasyonu)
 ├── database/             # Veritabanı şeması ve SQL işlemleri
 ├── query/                # Arama motoru ve CQL parser
 ├── ingestion/            # Dosya okuma ve işleme

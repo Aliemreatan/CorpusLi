@@ -27,7 +27,6 @@ py run_gui.py
 - **NLP Backend**: 
   - `simple`: Hızlı, temel (önerilen)
   - `spaCy`: Gelişmiş (Python 3.13 gerekli)
-  - `stanza`: Alternatif
   - `custom_bert`: Kendi modeliniz
 - **İçeri Aktar Butonu**: Batch processing
 
@@ -160,7 +159,6 @@ py run_gui.py
 ### Backend Seçimi
 - **simple**: En hızlı, en güvenilir (önerilen)
 - **spaCy**: En doğru sonuçlar (Python 3.13 gerekli)
-- **stanza**: Alternatif seçenek
 - **custom_bert**: Kendi modeliniz için
 
 ### Performans Optimizasyonu

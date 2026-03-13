@@ -100,7 +100,7 @@ class TurkishNLPProcessor:
         Initialize NLP processor
         
         Args:
-            backend: 'spacy', 'stanza', 'simple', 'custom_bert', or 'fallback'
+            backend: 'spacy', 'simple', 'custom_bert', or 'fallback'
             model_name: Name of the model to load
             bert_model_path: Path to custom BERT model (for 'custom_bert' backend)
         """
@@ -119,8 +119,6 @@ class TurkishNLPProcessor:
         """Initialize the selected NLP backend"""
         if self.backend == 'spacy':
             self._init_spacy()
-        elif self.backend == 'stanza':
-            self._init_stanza()
         elif self.backend == 'simple':
             self._init_simple()
         elif self.backend == 'custom_bert':
@@ -150,21 +148,6 @@ class TurkishNLPProcessor:
             self._auto_detect_backend()
         except OSError:
             logger.warning(f"spaCy model '{self.model_name}' not found")
-            self._auto_detect_backend()
-    
-    def _init_stanza(self):
-        """Initialize Stanza Turkish model"""
-        try:
-            import stanza
-            stanza.download('tr')
-            self.nlp = stanza.Pipeline('tr', processors='tokenize,pos,lemma,depparse')
-            self.available_backends.append('stanza')
-            logger.info("Stanza Turkish model loaded successfully")
-        except ImportError:
-            logger.warning("Stanza not installed")
-            self._auto_detect_backend()
-        except Exception as e:
-            logger.warning(f"Error loading Stanza model: {e}")
             self._auto_detect_backend()
     
     def _init_simple(self):
@@ -199,7 +182,7 @@ class TurkishNLPProcessor:
     
     def _auto_detect_backend(self):
         """Automatically detect the best available backend"""
-        backends = ['spacy', 'stanza', 'simple']
+        backends = ['spacy', 'simple']
         
         for backend in backends:
             try:
@@ -210,13 +193,6 @@ class TurkishNLPProcessor:
                     self.available_backends.append('spacy')
                     logger.info(f"Auto-selected spaCy as backend")
                     return
-                elif backend == 'stanza':
-                    import stanza
-                    stanza.download('tr')
-                    self.nlp = stanza.Pipeline('tr', processors='tokenize,pos,lemma,depparse')
-                    self.available_backends.append('stanza')
-                    logger.info("Auto-selected Stanza as backend")
-                    return
                 elif backend == 'simple':
                     self.available_backends.append('simple')
                     logger.info("Auto-selected simple tokenizer as backend")
@@ -225,7 +201,7 @@ class TurkishNLPProcessor:
                 continue
         
         logger.error("No NLP backend available")
-        raise RuntimeError("No NLP backend available. Install spaCy or Stanza.")
+        raise RuntimeError("No NLP backend available. Install spaCy or use simple backend.")
     
     def process_text(self, text: str) -> List[Dict[str, Any]]:
         """
@@ -244,8 +220,6 @@ class TurkishNLPProcessor:
         
         if self.backend == 'spacy':
             tokens = self._process_with_spacy(text)
-        elif self.backend == 'stanza':
-            tokens = self._process_with_stanza(text)
         elif self.backend == 'custom_bert':
             tokens = self._process_with_custom_bert(text)
         else:
@@ -277,41 +251,6 @@ class TurkishNLPProcessor:
                 'is_space': token.is_space
             }
             tokens.append(token_data)
-        
-        return tokens
-    
-    def _process_with_stanza(self, text: str) -> List[Dict[str, Any]]:
-        """Process text using Stanza"""
-        doc = self.nlp(text)
-        tokens = []
-        
-        # Track position if Stanza fails to provide it
-        current_pos = 0
-        
-        for sent in doc.sentences:
-            for word in sent.words:
-                # Fallback for start/end char if Stanza doesn't provide them
-                start = word.start_char if word.start_char is not None else text.find(word.text, current_pos)
-                if start == -1: start = current_pos # Last resort
-                
-                end = word.end_char if word.end_char is not None else start + len(word.text)
-                current_pos = end
-
-                token_data = {
-                    'word': word.text,
-                    'norm': word.lemma.lower() if word.lemma else word.text.lower(),
-                    'upos': word.upos,
-                    'upos_tr': self._map_pos_to_turkish(word.upos),
-                    'xpos': word.xpos,
-                    'morph': self._format_stanza_morph(word.feats),
-                    'dep_head': word.head if word.head != 0 else None,
-                    'dep_rel': word.deprel if word.deprel != 'root' else 'root',
-                    'start_char': start,
-                    'end_char': end,
-                    'is_punctuation': word.text in '.,;:!?"()[]{}',
-                    'is_space': False
-                }
-                tokens.append(token_data)
         
         return tokens
     
@@ -359,12 +298,6 @@ class TurkishNLPProcessor:
         if not morph:
             return None
         return str(morph)
-
-    def _format_stanza_morph(self, feats) -> Optional[str]:
-        """Format Stanza morphology features to string"""
-        if not feats:
-            return None
-        return str(feats)
 
     def _map_pos_to_turkish(self, pos: str) -> str:
         """Map Universal POS tags to Turkish equivalents"""
@@ -448,9 +381,6 @@ class TurkishNLPProcessor:
         if self.backend == 'spacy':
             doc = self.nlp(text)
             return [sent.text.strip() for sent in doc.sents if sent.text.strip()]
-        elif self.backend == 'stanza':
-            doc = self.nlp(text)
-            return [sent.text.strip() for sent in doc.sentences if sent.text.strip()]
         else:
             # Enhanced sentence splitting for Turkish
             # Handles ellipsis (...), !, ?, . followed by whitespace or end of string OR newlines
@@ -488,10 +418,10 @@ class TurkishNLPProcessor:
             'model_name': self.model_name,
             'features_available': {
                 'tokenization': True,
-                'pos_tagging': self.backend in ['spacy', 'stanza', 'custom_bert'],
-                'lemmatization': self.backend in ['spacy', 'stanza', 'custom_bert'],
-                'morphology': self.backend in ['spacy', 'stanza', 'custom_bert'],
-                'dependency_parsing': self.backend in ['spacy', 'stanza'],
+                'pos_tagging': self.backend in ['spacy', 'custom_bert'],
+                'lemmatization': self.backend in ['spacy', 'custom_bert'],
+                'morphology': self.backend in ['spacy', 'custom_bert'],
+                'dependency_parsing': self.backend in ['spacy'],
                 'bert_confidence': self.backend == 'custom_bert'
             }
         }
@@ -509,7 +439,7 @@ def create_turkish_processor(backend='auto', model_name='tr_core_news_sm', bert_
     Create a Turkish NLP processor with automatic backend detection
     
     Args:
-        backend: 'auto', 'spacy', 'stanza', 'simple', or 'custom_bert'
+        backend: 'auto', 'spacy', 'simple', or 'custom_bert'
         model_name: spaCy model name (ignored for other backends)
         bert_model_path: Path to custom BERT model (for 'custom_bert' backend)
         

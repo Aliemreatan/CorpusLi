@@ -4,7 +4,7 @@
 
 ### 1. **Çoklu NLP Backend Desteği (Real-time)**
 - **Önceden**: Sadece BERT için real-time analiz
-- **Şimdi**: Tüm backendler için real-time analiz (BERT, Stanza, SpaCy, Simple)
+- **Şimdi**: Tüm backendler için real-time analiz (BERT, SpaCy, Simple)
 - **GUI**: "Real-time NLP Analizi (Tüm Backendler)" bölümü eklendi
 - **Seçim**: Kullanıcı herhangi bir backend'i seçip anında analiz yapabilir
 
@@ -65,8 +65,7 @@
 ```
 === REAL-TIME NLP BACKENDS ===
 ✓ SIMPLE: 7 tokens processed
-✓ STANZA: 7 tokens processed (fallback)
-✓ SPACY: 7 tokens processed (fallback)
+✓ SPACY: 7 tokens processed
 ✓ CUSTOM_BERT: 6 tokens processed
 
 === CORPUS SOURCES ===
@@ -89,7 +88,7 @@ python run_gui.py
 
 ### Real-time NLP Analizi
 - Kelime listesinden seçin veya metin girin
-- Backend seçin (BERT, Stanza, SpaCy, Simple)
+- Backend seçin (BERT, SpaCy, Simple)
 - "NLP ile Analiz Et" butonuna tıklayın
 - Anında sonuçları görün
 

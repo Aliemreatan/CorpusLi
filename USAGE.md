@@ -80,12 +80,11 @@ for token in tokens[:5]:
 - **Batch Processing**: Büyük dosya desteği
 - **Hata Toleransı**: Fallback sistemleri
 
-### ⚠️ Kısıtlı Özellikler (spaCy/Stanza gerekli)
-- **POS Tagging**: spaCy/Stanza kuruluysa aktif
-- **Lemma**: spaCy/Stanza kuruluysa aktif  
-- **Dependency Parsing**: spaCy/Stanza kuruluysa aktif
-- **Gelişmiş Morphology**: spaCy/Stanza kuruluysa aktif
-
+### ⚠️ Kısıtlı Özellikler (spaCy gerekli)
+- **POS Tagging**: spaCy kuruluysa aktif
+- **Lemma**: spaCy kuruluysa aktif
+- **Dependency Parsing**: spaCy kuruluysa aktif
+- **Gelişmiş Morphology**: spaCy kuruluysa aktif
 ## 🔧 Kurulum Seçenekleri
 
 ### Seçenek 1: Temel Sistem (Önerilen)
@@ -107,17 +106,7 @@ python -m spacy download tr_core_news_sm
 python -c "import spacy; nlp = spacy.load('tr_core_news_sm'); print('spaCy çalışıyor')"
 ```
 
-### Seçenek 3: Stanza ile
-```bash
-# Stanza kurulum
-pip install stanza
-python -m stanza.download('tr')
-
-# Test
-python -c "import stanza; nlp = stanza.Pipeline('tr'); print('Stanza çalışıyor')"
-```
-
-### Seçenek 4: BERT Modeli ile
+### Seçenek 3: BERT Modeli ile
 ```bash
 # PyTorch ve Transformers
 pip install torch transformers

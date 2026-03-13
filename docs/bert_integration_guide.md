@@ -76,7 +76,7 @@ for token in tokens:
 from nlp.turkish_processor import create_turkish_processor
 
 # Farklı backend'leri test et
-backends = ['simple', 'spacy', 'stanza', 'custom_bert']
+backends = ['simple', 'spacy', 'custom_bert']
 text = "Bu bir test cümlesidir."
 
 for backend in backends:

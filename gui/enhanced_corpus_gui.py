@@ -187,7 +187,7 @@ class EnhancedCorpusGUI:
         ttk.Label(ingest_frame, text="NLP Backend:").grid(row=1, column=0, sticky=tk.W, pady=(5, 10))
         self.backend_var = tk.StringVar(value="custom_bert")
         backend_combo = ttk.Combobox(ingest_frame, textvariable=self.backend_var, 
-                                    values=["custom_bert", "stanza", "spacy", "simple"], state="readonly")
+                                    values=["custom_bert", "spacy", "simple"], state="readonly")
         backend_combo.grid(row=1, column=1, sticky=tk.W, padx=(10, 5), pady=(5, 10))
         
         # File formats info
